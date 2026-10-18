@@ -1,0 +1,37 @@
+# popnow-js
+
+> `popnow` is the official TypeScript / JavaScript SDK for the PopNow API (https://popnow.ai), a single API for AI video, image, music and speech generation (Kling, Seedance, Wan, Vidu, MiniMax, Nano Banana, GPT Image, Flux, Suno and more). Zero runtime dependencies; runs on Node.js 18+, Deno, Bun, Cloudflare Workers and edge runtimes. MIT licensed.
+
+## Install and authenticate
+
+- `npm install popnow`
+- API key from https://popnow.ai/api/console/keys, sent as `Authorization: Bearer sk-popnow-...`; the client reads `POPNOW_API_KEY` by default.
+- API base `https://api.popnow.ai`, native endpoints under `/api/v1`. Responses use the envelope `{code,msg,data,request_id}`; the SDK unwraps `data` and throws typed errors otherwise.
+
+## Main calls
+
+- `new PopNow({ apiKey, baseURL, timeout, maxRetries, language })`
+- `popnow.jobs.quote(params)` -> price in credits without holding anything (`maxCredits`, `quoteId`)
+- `popnow.jobs.create({ model, input, callBackUrl? }, { idempotencyKey?, wait?, retention? })` -> `{ taskId, state, estimatedCredits }`
+- `popnow.jobs.get(taskId)`, `popnow.jobs.wait(taskId, { signal, timeout, pollInterval, throwOnFailure })`, `popnow.jobs.createAndWait(params)`
+- `popnow.jobs.list(filters)`, `popnow.jobs.listAll(filters)`, `popnow.jobs.retry(taskId)`, `popnow.jobs.purge(taskId)`
+- `popnow.models.list({ modality, provider, task, search, includeSchema })`, `popnow.models.get(modelId)`
+- `popnow.files.upload(blobOrBytes, { contentType? })` -> `{ uri: 'popnow://f/fil_...' }`; `popnow.files.import({ url, token })` for LoRA weights; `popnow.files.downloadUrl({ taskId })`
+- `popnow.assets.create|list|listAll|get|update|delete|usage`, `popnow.assets.characters.list|get` -> stable `popnow://a/ast_...` URIs
+- `popnow.account.balance()`, `popnow.account.usage({ from, to })`
+- `verifyWebhook({ payload, headers, secret })` for task callbacks; `verifyStandardWebhook` for account endpoints
+
+## Facts
+
+- Model IDs look like `<maker>/<model>/<task>`, e.g. `alibaba/z-image-turbo/text-to-image`, `alibaba/wan-3.0/image-to-video`, `kling/3.0/text-to-video`.
+- Task states: queued, running, succeeded, failed, expired (canceled only on old records).
+- 1 credit = $0.01; same credits as the website; failed tasks are refunded.
+- Output links (`output.assets[].url`) are signed and last about 20 minutes.
+
+## Links
+
+- Docs: https://popnow.ai/docs
+- OpenAPI: https://popnow.ai/docs/openapi
+- llms.txt for the whole API: https://popnow.ai/llms.txt
+- MCP server: https://popnow.ai/mcp
+- Source: https://github.com/popnow-ai/popnow-js
