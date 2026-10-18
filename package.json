@@ -60,6 +60,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "prepare": "tsup",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs && node scripts/smoke.cjs",

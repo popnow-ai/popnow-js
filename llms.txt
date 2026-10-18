@@ -4,7 +4,7 @@
 
 ## Install and authenticate
 
-- `npm install popnow`
+- `npm install github:popnow-ai/popnow-js` (npm release as `popnow` coming soon); import from `popnow`
 - API key from https://popnow.ai/api/console/keys, sent as `Authorization: Bearer sk-popnow-...`; the client reads `POPNOW_API_KEY` by default.
 - API base `https://api.popnow.ai`, native endpoints under `/api/v1`. Responses use the envelope `{code,msg,data,request_id}`; the SDK unwraps `data` and throws typed errors otherwise.
 

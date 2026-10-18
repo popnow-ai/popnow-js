@@ -1,6 +1,6 @@
 // Generate one image and save it to disk.
 //
-//   npm install popnow
+//   npm install github:popnow-ai/popnow-js
 //   export POPNOW_API_KEY="sk-popnow-..."
 //   node generate-image.mjs "A small red fox curled up in a teacup, soft morning light"
 import { writeFile } from 'node:fs/promises';
