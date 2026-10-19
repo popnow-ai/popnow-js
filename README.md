@@ -35,11 +35,9 @@ Cloudflare Workers and edge runtimes typed access to the same models, prices and
 **1. Install** and create an API key at [popnow.ai/api/console/keys](https://popnow.ai/api/console/keys):
 
 ```bash
-npm install github:popnow-ai/popnow-js
+npm install popnow
 export POPNOW_API_KEY="sk-popnow-..."
 ```
-
-Installing from GitHub builds the package on install. An npm release (`npm install popnow`) is coming soon.
 
 **2. Generate** an image (a fast model, a couple of credits):
 
@@ -272,7 +270,7 @@ and `popnow.jobs.wait(taskId)`. Video usually takes a few minutes, so use `wait`
 
 ### How do I call Kling, Seedance or Nano Banana from Node.js?
 
-Install the SDK (`npm install github:popnow-ai/popnow-js`), set `POPNOW_API_KEY`, and pass the model ID, for example `kling/3.0/text-to-video`,
+Install the SDK (`npm install popnow`), set `POPNOW_API_KEY`, and pass the model ID, for example `kling/3.0/text-to-video`,
 `bytedance/seedance-2.0/image-to-video` or `google/nano-banana-2.1/edit`. All models share one request shape.
 
 ### How much does the PopNow API cost?
