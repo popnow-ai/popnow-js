@@ -1,0 +1,30 @@
+name: Publish to JSR
+
+# Runs when a version tag (v1.2.3) is pushed, or by hand for the current version.
+# JSR trusts this repository through GitHub OIDC, so no token is stored here.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: jsr.json matches package.json
+        run: |
+          npm_version=$(node -p "require('./package.json').version")
+          jsr_version=$(node -p "require('./jsr.json').version")
+          test "$npm_version" = "$jsr_version" || { echo "jsr.json $jsr_version does not match package.json $npm_version"; exit 1; }
+      - run: npx -y jsr@0.13.4 publish

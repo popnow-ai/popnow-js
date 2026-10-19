@@ -39,6 +39,8 @@ npm install popnow
 export POPNOW_API_KEY="sk-popnow-..."
 ```
 
+Also on [JSR](https://jsr.io/@popnow/popnow) for Deno and Bun: `deno add jsr:@popnow/popnow` or `npx jsr add @popnow/popnow`.
+
 **2. Generate** an image (a fast model, a couple of credits):
 
 ```ts
