@@ -41,7 +41,7 @@ export POPNOW_API_KEY="sk-popnow-..."
 
 Also on [JSR](https://jsr.io/@popnow/popnow) for Deno and Bun: `deno add jsr:@popnow/popnow` or `npx jsr add @popnow/popnow`.
 
-**2. Generate** an image (a fast model, a couple of credits):
+**2. Generate** an image (a fast model, about 10 credits):
 
 ```ts
 import { PopNow } from 'popnow';
@@ -277,7 +277,7 @@ Install the SDK (`npm install popnow`), set `POPNOW_API_KEY`, and pass the model
 
 ### How much does the PopNow API cost?
 
-The API spends the same credits as popnow.ai (1 credit = $0.01), with no subscription; failed tasks are
+The API spends the same credits as popnow.ai (1 credit = $0.001), with no subscription; failed tasks are
 refunded. Call `popnow.jobs.quote(params)` for the exact price of one request, or see
 [popnow.ai/pricing](https://popnow.ai/pricing).
 

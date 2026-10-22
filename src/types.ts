@@ -1,7 +1,7 @@
 /**
  * Types for the PopNow API, written by hand from the public OpenAPI contract
  * (https://popnow.ai/docs/openapi). Amounts are returned twice: as integer
- * credits (1 credit = $0.01) and as exact USD decimal strings.
+ * credits (1 credit = $0.001) and as exact USD decimal strings.
  */
 
 /** Decimal USD amount encoded as a string, for example `"0.34"`. */

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { APIError, PopNowError, TaskFailedError, WaitTimeoutError, isTaskDone } from '../src/index.js';
 import { client, envelope, mockFetch, taskRecord } from './helpers.js';
 
-const accepted = { taskId: 'job_1', state: 'queued', estimatedCost: '0.34', estimatedCredits: 34, deadlineAt: '2099-01-01T00:00:00Z' };
+const accepted = { taskId: 'job_1', state: 'queued', estimatedCost: '0.225', estimatedCredits: 225, deadlineAt: '2099-01-01T00:00:00Z' };
 
 describe('models', () => {
   it('lists with filters and gets a model with slashes in its id', async () => {
@@ -257,7 +257,7 @@ describe('assets', () => {
 describe('account', () => {
   it('reads balance and usage', async () => {
     const { fetch, calls } = mockFetch(
-      envelope({ availableCredits: 1200, heldCredits: 34, totalCredits: 1234, available: '12.00', held: '0.34', total: '12.34' }),
+      envelope({ availableCredits: 1200, heldCredits: 34, totalCredits: 1234, available: '1.200', held: '0.034', total: '1.234' }),
       envelope({ totalCredits: 99 }),
     );
     const popnow = client(fetch);

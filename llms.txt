@@ -25,7 +25,7 @@
 
 - Model IDs look like `<maker>/<model>/<task>`, e.g. `alibaba/z-image-turbo/text-to-image`, `alibaba/wan-3.0/image-to-video`, `kling/3.0/text-to-video`.
 - Task states: queued, running, succeeded, failed, expired (canceled only on old records).
-- 1 credit = $0.01; same credits as the website; failed tasks are refunded.
+- 1 credit = $0.001; same credits as the website; failed tasks are refunded.
 - Output links (`output.assets[].url`) are signed and last about 20 minutes.
 
 ## Links

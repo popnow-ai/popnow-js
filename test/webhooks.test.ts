@@ -14,7 +14,7 @@ function signTaskCallback(raw: string, taskId: string, timestamp: number, secret
 const body = JSON.stringify({
   code: 200,
   msg: 'success',
-  data: { taskId: 'job_01JH8Z', model: 'alibaba/wan-3.0/image-to-video', state: 'succeeded', credits: 34, cost: '0.34', settled: true },
+  data: { taskId: 'job_01JH8Z', model: 'alibaba/wan-3.0/image-to-video', state: 'succeeded', credits: 225, cost: '0.225', settled: true },
   request_id: 'whd_01JH8Z',
 });
 
@@ -41,7 +41,7 @@ describe('verifyWebhook (task callbacks)', () => {
   });
 
   it('rejects a tampered body, a wrong secret and a stale timestamp', async () => {
-    const tampered = body.replace('"credits":34', '"credits":0');
+    const tampered = body.replace('"credits":225', '"credits":0');
     await expect(verifyWebhook({ payload: tampered, headers, secret: SECRET, now: NOW })).rejects.toBeInstanceOf(WebhookVerificationError);
     await expect(verifyWebhook({ payload: body, headers, secret: 'other', now: NOW })).rejects.toThrow(/Signature/);
     await expect(verifyWebhook({ payload: body, headers, secret: SECRET, now: NOW + 301 })).rejects.toThrow(/tolerance/);

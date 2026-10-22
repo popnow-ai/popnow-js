@@ -139,7 +139,7 @@ describe('retries', () => {
         throw new TypeError('fetch failed');
       },
       () => new Response('gateway timeout', { status: 524 }),
-      envelope({ taskId: 'job_1', state: 'queued', estimatedCost: '0.02', estimatedCredits: 2, deadlineAt: 'x' }, { status: 202 }),
+      envelope({ taskId: 'job_1', state: 'queued', estimatedCost: '0.01', estimatedCredits: 10, deadlineAt: 'x' }, { status: 202 }),
     );
     const popnow = client(fetch, { maxRetries: 2 });
     vi.spyOn(Math, 'random').mockReturnValue(0);
