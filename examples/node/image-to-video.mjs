@@ -20,7 +20,7 @@ const created = await popnow.jobs.create(
   },
   { idempotencyKey: `i2v-${file.fileId}` },
 );
-console.log(`Task ${created.taskId} accepted, ${created.estimatedCredits} credits held`);
+console.log(`Task ${created.taskId} accepted, $${created.estimatedCostUsd} held from your API balance`);
 
 // 3. Wait with backoff (video usually takes a few minutes). Ctrl-C stops waiting, not the task.
 const task = await popnow.jobs.wait(created.taskId, {
@@ -33,4 +33,4 @@ if (task.state !== 'succeeded') {
 }
 const video = await fetch(task.output.assets[0].url);
 await writeFile('video.mp4', Buffer.from(await video.arrayBuffer()));
-console.log(`Saved video.mp4 (${task.credits} credits)`);
+console.log(`Saved video.mp4 ($${task.costUsd} charged; the rest of the hold was released)`);

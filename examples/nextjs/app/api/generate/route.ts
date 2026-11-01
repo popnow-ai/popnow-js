@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return Response.json({ taskId: task.taskId, state: task.state });
   } catch (err) {
     if (err instanceof APIError) {
-      // Branch on the business code, never on the message text.
+      // Branch on the business code, never on the message text. 40201: the API balance cannot cover the hold.
       const status = err.code === 40201 ? 402 : err.status;
       return Response.json({ error: err.message, code: err.code }, { status });
     }

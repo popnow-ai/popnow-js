@@ -1,7 +1,7 @@
 // Generate one image and save it to disk.
 //
 //   npm install popnow
-//   export POPNOW_API_KEY="sk-popnow-..."
+//   export POPNOW_API_KEY="sk-popnow-..."   # add API funds at https://popnow.ai/api/console/billing
 //   node generate-image.mjs "A small red fox curled up in a teacup, soft morning light"
 import { writeFile } from 'node:fs/promises';
 import { PopNow, APIError } from 'popnow';
@@ -13,11 +13,12 @@ try {
   // Optional: ask the price first. Nothing is held or charged.
   const params = { model: 'alibaba/z-image-turbo/text-to-image', input: { prompt } };
   const quote = await popnow.jobs.quote(params);
-  console.log(`This image costs at most ${quote.maxCredits} credits`);
+  // USD amounts are exact decimal strings: show them as they are, do not parse them into floats.
+  console.log(`This image costs at most $${quote.maxChargeUsd} (typically $${quote.expectedChargeUsd})`);
 
-  // Lock in that price, wait up to 60 s on the first call, then poll until done.
+  // Lock in that maximum (the quote's maxChargeUsd), wait up to 60 s on the first call, then poll until done.
   const task = await popnow.jobs.createAndWait(
-    { ...params, quoteId: quote.quoteId, expectedCredits: quote.maxCredits },
+    { ...params, quoteId: quote.quoteId, expectedCostUsd: quote.maxChargeUsd },
     { throwOnFailure: true },
   );
 
@@ -26,7 +27,7 @@ try {
   // Signed links are bearer URLs: do not send your API key when downloading.
   const file = await fetch(asset.url);
   await writeFile('image.png', Buffer.from(await file.arrayBuffer()));
-  console.log(`Saved image.png (${task.credits} credits, task ${task.taskId})`);
+  console.log(`Saved image.png ($${task.costUsd} from your API balance, task ${task.taskId})`);
 } catch (err) {
   if (err instanceof APIError) {
     console.error(`PopNow error ${err.code}: ${err.message}`);

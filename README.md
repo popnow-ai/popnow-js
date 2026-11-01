@@ -27,12 +27,15 @@
 
 PopNow is a browser-based AI studio for videos, images and music: image-to-video, text-to-video, AI images,
 music and speech, one-tap trending video effects and image styles. This SDK gives Node.js, Deno, Bun,
-Cloudflare Workers and edge runtimes typed access to the same models, prices and credit wallet as
-[popnow.ai](https://popnow.ai). It has **zero runtime dependencies** and uses the global `fetch`.
+Cloudflare Workers and edge runtimes typed access to the same models as [popnow.ai](https://popnow.ai), at the
+same price for the same settings, billed in USD from your separate **API balance**. It has **zero runtime
+dependencies** and uses the global `fetch`.
 
 ## Quickstart
 
-**1. Install** and create an API key at [popnow.ai/api/console/keys](https://popnow.ai/api/console/keys):
+**1. Install**, create an API key at [popnow.ai/api/console/keys](https://popnow.ai/api/console/keys) and add funds
+in [API billing](https://popnow.ai/api/console/billing) (the API balance starts at $0 and is separate from website
+credits):
 
 ```bash
 npm install popnow
@@ -41,7 +44,7 @@ export POPNOW_API_KEY="sk-popnow-..."
 
 Also on [JSR](https://jsr.io/@popnow/popnow) for Deno and Bun: `deno add jsr:@popnow/popnow` or `npx jsr add @popnow/popnow`.
 
-**2. Generate** an image (a fast model, about 10 credits):
+**2. Generate** an image (a fast model, about $0.01):
 
 ```ts
 import { PopNow } from 'popnow';
@@ -57,7 +60,7 @@ const task = await popnow.jobs.createAndWait({
 **3. Use the result.** `output.assets[0].url` is a signed link that works for about 20 minutes:
 
 ```ts
-console.log(task.state, task.credits, task.output?.assets?.[0]?.url);
+console.log(task.state, task.costUsd, task.output?.assets?.[0]?.url); // costUsd: exact USD charge, e.g. "0.01"
 ```
 
 ## Features
@@ -68,7 +71,7 @@ console.log(task.state, task.credits, task.output?.assets?.[0]?.url);
 | Models | `list` (filter by modality, provider, task, search; optional input schemas and examples) and `get` |
 | Files | `upload` a `Blob`, `File`, `Buffer`, `Uint8Array` or `ArrayBuffer` (ticket, PUT, commit in one call), `import` LoRA weights from a link, `downloadUrl` |
 | Assets | Long-term asset library: `create`, `list` / `listAll`, `get`, `update`, `delete`, `usage`, `characters.list` / `characters.get` |
-| Account | `balance()` and `usage()` in credits and USD |
+| Account | `balance()` (`availableUsd`, `heldUsd`, `totalUsd`) and `usage()` (`totalSpend`), as exact USD strings |
 | Reliability | Automatic retries for connection errors, timeouts, `429`, `500`, `503`, `50301` with `Retry-After`; an `Idempotency-Key` is always sent on task creation so retries never charge twice |
 | Errors | Typed error classes from the `{code,msg,data,request_id}` envelope, with `code`, `status`, `requestId` and `reason` |
 | Webhooks | `verifyWebhook` (task callbacks) and `verifyStandardWebhook` (account endpoints), using Web Crypto |
@@ -122,7 +125,7 @@ const created = await popnow.jobs.create(
   },
   { idempotencyKey: 'order-8814-render-1' },
 );
-// created: { taskId, state: 'queued', estimatedCredits, estimatedCost, deadlineAt }
+// created: { taskId, state: 'queued', estimatedCostUsd, deadlineAt }  (estimatedCostUsd: the USD hold)
 
 const controller = new AbortController();
 const task = await popnow.jobs.wait(created.taskId, {
@@ -140,10 +143,25 @@ const task = await popnow.jobs.wait(created.taskId, {
 ```ts
 const params = { model: 'alibaba/wan-3.0/image-to-video', input: { image_url, resolution: '720p', duration_seconds: 5 } };
 const quote = await popnow.jobs.quote(params); // nothing is held
-console.log(`At most ${quote.maxCredits} credits`);
-await popnow.jobs.create({ ...params, quoteId: quote.quoteId, expectedCredits: quote.maxCredits });
-// A changed price or an expired quote fails with ConflictError code 40901.
+console.log(`$${quote.expectedChargeUsd} typical, $${quote.maxChargeUsd} at most`);
+await popnow.jobs.create({ ...params, quoteId: quote.quoteId, expectedCostUsd: quote.maxChargeUsd });
+// A changed price or an expired quote (five minutes) fails with ConflictError code 40901 and holds nothing.
 ```
+
+Confirm with `maxChargeUsd`, the amount that is held, never with the typical `expectedChargeUsd`. Sending
+`quoteId` alone also works.
+
+### Money amounts
+
+Every amount is an **exact USD decimal string** with up to nine decimal places, for example `"0.0048"`:
+`maxChargeUsd` and `expectedChargeUsd` on a quote, `estimatedCostUsd` when a task is accepted, `costUsd` on the
+task record (the hold while `settled` is false, the final charge once it is true), `availableUsd`, `heldUsd`
+and `totalUsd` on the balance, and `spend` / `totalSpend` in usage. Keep them as strings, or use a decimal
+library, for accounting; do not round them through `parseFloat`.
+
+The integer credit fields (`maxCredits`, `estimatedCredits`, `credits`, `availableCredits` and the rest) are
+deprecated display projections at 1 credit = $0.001. They are still typed and returned for compatibility, but
+new code should read the USD fields.
 
 ### Upload your own files
 
@@ -177,16 +195,19 @@ await popnow.jobs.create({
 ```ts
 const page = await popnow.jobs.list({ state: 'failed', from: '2026-10-01', limit: 50 });
 for await (const item of popnow.jobs.listAll({ model: 'alibaba/wan-3.0/image-to-video' })) {
-  console.log(item.taskId, item.state, item.credits);
+  console.log(item.taskId, item.state, item.cost); // cost: exact USD (final if settled, otherwise the hold)
 }
 ```
 
 ### Balance and usage
 
 ```ts
-const balance = await popnow.account.balance(); // availableCredits, heldCredits, totalCredits
-const usage = await popnow.account.usage({ from: '2026-10-01', to: '2026-10-16' });
+const balance = await popnow.account.balance(); // availableUsd, heldUsd, totalUsd: exact USD strings
+const usage = await popnow.account.usage({ from: '2026-10-01', to: '2026-10-16' }); // totalSpend, per day and per model
 ```
+
+The balance is the API's own USD balance. Website credits are separate and never count toward it; add API funds
+in [API billing](https://popnow.ai/api/console/billing).
 
 ### Error handling
 
@@ -200,7 +221,7 @@ try {
   await popnow.jobs.createAndWait(params, { throwOnFailure: true });
 } catch (err) {
   if (err instanceof PaymentRequiredError) {
-    // 40201: not enough credits, 40202: a key spend cap was reached
+    // 40201: the API balance cannot cover the hold, 40202: a key spend cap was reached
   } else if (err instanceof RateLimitError) {
     console.log('retry after', err.retryAfter, 'seconds');
   } else if (err instanceof TaskFailedError) {
@@ -251,7 +272,7 @@ returns `{ type, data: { object: TaskRecord } }`.
 
 ### Browsers
 
-Do not ship your API key to a browser: anyone who opens the page can read it and spend your credits.
+Do not ship your API key to a browser: anyone who opens the page can read it and spend your API balance.
 The client prints a warning when it runs in a browser. Call PopNow from your own server (for example
 a Next.js route handler) and pass `dangerouslyAllowBrowser: true` only for local experiments.
 
@@ -277,9 +298,12 @@ Install the SDK (`npm install popnow`), set `POPNOW_API_KEY`, and pass the model
 
 ### How much does the PopNow API cost?
 
-The API spends the same credits as popnow.ai (1 credit = $0.001), with no subscription; failed tasks are
-refunded. Call `popnow.jobs.quote(params)` for the exact price of one request, or see
-[popnow.ai/pricing](https://popnow.ai/pricing).
+The API is prepaid in USD from its own API balance, with no subscription. A model costs the same on the API as
+on popnow.ai for the same settings, but website credits and the API balance are separate and neither can pay for
+the other. Failed or expired tasks release their hold, so you pay nothing for them. Call
+`popnow.jobs.quote(params)` for the exact USD price of one request, see
+[popnow.ai/api/pricing](https://popnow.ai/api/pricing), and add funds in
+[API billing](https://popnow.ai/api/console/billing).
 
 ### Does the SDK work on Cloudflare Workers, Deno, Bun and the Next.js edge runtime?
 
@@ -303,11 +327,13 @@ For video, PopNow also exposes an OpenAI-compatible `/v1/videos` API: set the Op
 
 ## Links
 
-- Website: [popnow.ai](https://popnow.ai) · Pricing: [popnow.ai/pricing](https://popnow.ai/pricing)
-- Docs: [popnow.ai/docs](https://popnow.ai/docs) · API reference: [popnow.ai/docs/openapi](https://popnow.ai/docs/openapi) · [llms.txt](https://popnow.ai/llms.txt)
-- MCP server for AI assistants: [popnow.ai/mcp](https://popnow.ai/mcp)
+- Website: [popnow.ai](https://popnow.ai) · API pricing: [popnow.ai/api/pricing](https://popnow.ai/api/pricing) · Models: [popnow.ai/api/models](https://popnow.ai/api/models)
+- API console: [keys](https://popnow.ai/api/console/keys) · [billing](https://popnow.ai/api/console/billing)
+- Docs: [popnow.ai/docs](https://popnow.ai/docs) · API billing: [popnow.ai/docs/billing](https://popnow.ai/docs/billing) · API reference: [popnow.ai/docs/openapi](https://popnow.ai/docs/openapi) · [llms.txt](https://popnow.ai/llms.txt)
+- Developer MCP server for AI coding agents (API key, USD): [popnow.ai/api/mcp](https://popnow.ai/api/mcp), endpoint `https://api.popnow.ai/api/v1/mcp`
+- Agent skills for developers: [popnow.ai/api/skills](https://popnow.ai/api/skills)
 - Other PopNow repositories:
-  [popnow-mcp](https://github.com/popnow-ai/popnow-mcp) ·
+  [popnow-api-mcp](https://github.com/popnow-ai/popnow-api-mcp) ·
   [popnow-skills](https://github.com/popnow-ai/popnow-skills) ·
   [popnow-python](https://github.com/popnow-ai/popnow-python) ·
   [popnow-js](https://github.com/popnow-ai/popnow-js) ·

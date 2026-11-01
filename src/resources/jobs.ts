@@ -77,7 +77,10 @@ const DEADLINE_GRACE_MS = 2 * 60 * 1000;
 export class Jobs {
   constructor(private readonly transport: Transport) {}
 
-  /** `POST /api/v1/jobs/quote`: validate a request and price it without creating a task or holding credits. */
+  /**
+   * `POST /api/v1/jobs/quote`: validate a request and price it in USD without creating a task or holding funds.
+   * Confirm the price by sending `quoteId` and `expectedCostUsd: quote.maxChargeUsd` to `create`.
+   */
   async quote(params: CreateTaskParams, options?: RequestOptions): Promise<TaskQuote> {
     const res = await this.transport.request<TaskQuote>({
       method: 'POST',
@@ -89,7 +92,8 @@ export class Jobs {
   }
 
   /**
-   * `POST /api/v1/jobs/createTask`. Holds the maximum charge and queues the task.
+   * `POST /api/v1/jobs/createTask`. Holds the maximum USD charge (`estimatedCostUsd`) from the API balance
+   * and queues the task.
    * An `Idempotency-Key` is always sent (generated when you do not pass one), so SDK retries are safe.
    */
   async create(params: CreateTaskParams, options: CreateTaskOptions = {}): Promise<CreateTaskResponse | TaskRecord> {

@@ -1,7 +1,7 @@
 import type { RequestOptions, Transport } from '../core.js';
 import type { Model, ModelId, ModelList, ModelListParams } from '../types.js';
 
-/** The model catalog: every image, video and audio model your key can call, with prices in credits. */
+/** The model catalog: every model your key can call, with USD rate snapshots (`usd`). */
 export class Models {
   constructor(private readonly transport: Transport) {}
 

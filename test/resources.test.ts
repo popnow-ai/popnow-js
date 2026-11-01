@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { APIError, PopNowError, TaskFailedError, WaitTimeoutError, isTaskDone } from '../src/index.js';
+import { APIError, PopNowError, TaskFailedError, WaitTimeoutError, isTaskDone, isTaskRecord } from '../src/index.js';
 import { client, envelope, mockFetch, taskRecord } from './helpers.js';
 
-const accepted = { taskId: 'job_1', state: 'queued', estimatedCost: '0.225', estimatedCredits: 225, deadlineAt: '2099-01-01T00:00:00Z' };
+const accepted = { taskId: 'job_1', state: 'queued', estimatedCost: '0.225', estimatedCostUsd: '0.225', deadlineAt: '2099-01-01T00:00:00Z' };
 
 describe('models', () => {
   it('lists with filters and gets a model with slashes in its id', async () => {
-    const { fetch, calls } = mockFetch(envelope({ total: 1, items: [{ model: 'alibaba/wan-3.0/image-to-video' }] }), envelope({ model: 'alibaba/wan-3.0/image-to-video' }));
+    const usd = { unit: 'per_second', perUnit: '0.045', currency: 'USD', rules: [{ when: { resolution: '1080p' }, perUnit: '0.09' }] };
+    const { fetch, calls } = mockFetch(
+      envelope({ total: 1, items: [{ model: 'alibaba/wan-3.0/image-to-video', usd }] }),
+      envelope({ model: 'alibaba/wan-3.0/image-to-video', usd }),
+    );
     const popnow = client(fetch);
     const list = await popnow.models.list({ modality: 'video', includeSchema: true, search: undefined });
     expect(list.items[0]!.model).toBe('alibaba/wan-3.0/image-to-video');
+    expect(list.items[0]!.usd.perUnit).toBe('0.045');
+    expect(list.items[0]!.usd.rules?.[0]?.perUnit).toBe('0.09');
     expect(calls[0]!.url).toBe('https://api.popnow.ai/api/v1/models?modality=video&includeSchema=true');
 
     await popnow.models.get('alibaba/wan-3.0/image-to-video');
@@ -20,13 +26,40 @@ describe('models', () => {
 describe('jobs', () => {
   const params = { model: 'alibaba/wan-3.0/image-to-video', input: { prompt: 'waves' } };
 
+  const quoted = {
+    quoteId: 'q_1',
+    model: 'alibaba/wan-3.0/image-to-video',
+    maxChargeUsd: '0.067500001',
+    expectedChargeUsd: '0.045',
+    maxCharge: '0.067500001',
+    estimatedCost: '0.067500001',
+    expectedCharge: '0.045',
+    currency: 'USD',
+    quantity: '5',
+    unit: 'per_second',
+    expiresAt: '2099-01-01T00:05:00Z',
+  };
+
   it('quotes with the createTask body', async () => {
-    const { fetch, calls } = mockFetch(envelope({ quoteId: 'q_1', maxCredits: 68 }));
+    const { fetch, calls } = mockFetch(envelope(quoted));
     const quote = await client(fetch).jobs.quote(params);
-    expect(quote.maxCredits).toBe(68);
+    expect(quote.maxChargeUsd).toBe('0.067500001');
+    expect(quote.expectedChargeUsd).toBe('0.045');
     expect(calls[0]!.method).toBe('POST');
     expect(calls[0]!.url).toBe('https://api.popnow.ai/api/v1/jobs/quote');
     expect(calls[0]!.body).toEqual(params);
+  });
+
+  it('confirms a quote with quoteId and expectedCostUsd, keeping every digit', async () => {
+    const { fetch, calls } = mockFetch(envelope(quoted), envelope(accepted, { status: 202 }));
+    const popnow = client(fetch);
+    const quote = await popnow.jobs.quote(params);
+    const created = await popnow.jobs.create({ ...params, quoteId: quote.quoteId, expectedCostUsd: quote.maxChargeUsd });
+    if (isTaskRecord(created)) throw new Error('expected the acceptance response');
+    expect(created.estimatedCostUsd).toBe('0.225');
+    expect(calls[1]!.body).toEqual({ ...params, quoteId: 'q_1', expectedCostUsd: '0.067500001' });
+    // The raw JSON carries the amount as a string, never a float.
+    expect(JSON.stringify(calls[1]!.body)).toContain('"expectedCostUsd":"0.067500001"');
   });
 
   it('creates a task with idempotency, retention and wait', async () => {
@@ -255,15 +288,79 @@ describe('assets', () => {
 });
 
 describe('account', () => {
-  it('reads balance and usage', async () => {
+  it('reads the USD balance and usage', async () => {
     const { fetch, calls } = mockFetch(
-      envelope({ availableCredits: 1200, heldCredits: 34, totalCredits: 1234, available: '1.200', held: '0.034', total: '1.234' }),
-      envelope({ totalCredits: 99 }),
+      envelope({
+        availableUsd: '12.000000005',
+        heldUsd: '0.034',
+        totalUsd: '12.034000005',
+        available: '12.000000005',
+        held: '0.034',
+        total: '12.034000005',
+      }),
+      envelope({
+        from: '2026-10-01',
+        to: '2026-10-16',
+        currency: 'USD',
+        totalCalls: 3,
+        totalSpend: '0.099',
+        days: [{ day: '2026-10-02', calls: 3, succeeded: 3, failed: 0, spend: '0.099' }],
+        models: [],
+      }),
     );
     const popnow = client(fetch);
-    expect((await popnow.account.balance()).availableCredits).toBe(1200);
+    const balance = await popnow.account.balance();
+    expect(balance.availableUsd).toBe('12.000000005');
+    expect(balance.heldUsd).toBe('0.034');
+    expect(balance.totalUsd).toBe('12.034000005');
     expect(calls[0]!.url).toBe('https://api.popnow.ai/api/v1/chat/credit');
-    expect((await popnow.account.usage({ from: '2026-10-01', to: '2026-10-16' })).totalCredits).toBe(99);
+    const usage = await popnow.account.usage({ from: '2026-10-01', to: '2026-10-16' });
+    expect(usage.totalSpend).toBe('0.099');
+    expect(usage.days[0]!.spend).toBe('0.099');
     expect(calls[1]!.url).toBe('https://api.popnow.ai/api/v1/usage?from=2026-10-01&to=2026-10-16');
+  });
+});
+
+describe('deprecated credit fields', () => {
+  it('still parses and sends the legacy credit fields', async () => {
+    const { fetch, calls } = mockFetch(
+      envelope({ quoteId: 'q_1', maxCredits: 68, expectedCredits: 45, maxCharge: '0.068', estimatedCost: '0.068' }),
+      envelope({ taskId: 'job_1', state: 'queued', estimatedCost: '0.068', estimatedCredits: 68, deadlineAt: '2099-01-01T00:00:00Z' }, { status: 202 }),
+      envelope(taskRecord({ credits: 10, exactCredits: '10' })),
+      envelope({ items: [{ taskId: 'job_1', cost: '0.01', credits: 10, exactCredits: '10' }], hasMore: false }),
+      envelope({ availableCredits: 1200, heldCredits: 34, totalCredits: 1234, available: '1.2', held: '0.034', total: '1.234' }),
+      envelope({ totalCredits: 99, days: [{ day: '2026-10-02', credits: 99 }], models: [{ model: 'm', credits: 99 }] }),
+      envelope({ model: 'alibaba/z-image-turbo/text-to-image', credits: { unit: 'per_image', perUnit: 10 } }),
+    );
+    const popnow = client(fetch);
+    const params = { model: 'alibaba/z-image-turbo/text-to-image', input: { prompt: 'fox' } };
+
+    const quote = await popnow.jobs.quote(params);
+    expect(quote.maxCredits).toBe(68);
+    expect(quote.expectedCredits).toBe(45);
+
+    const created = await popnow.jobs.create({ ...params, quoteId: quote.quoteId, expectedCredits: quote.maxCredits, expectedCost: quote.maxCharge });
+    if (isTaskRecord(created)) throw new Error('expected the acceptance response');
+    expect(created.estimatedCredits).toBe(68);
+    expect(calls[1]!.body).toEqual({ ...params, quoteId: 'q_1', expectedCredits: 68, expectedCost: '0.068' });
+
+    const task = await popnow.jobs.get('job_1');
+    expect(task.credits).toBe(10);
+    expect(task.exactCredits).toBe('10');
+
+    const page = await popnow.jobs.list();
+    expect(page.items[0]!.credits).toBe(10);
+
+    const balance = await popnow.account.balance();
+    expect(balance.availableCredits).toBe(1200);
+    expect(balance.available).toBe('1.2');
+
+    const usage = await popnow.account.usage();
+    expect(usage.totalCredits).toBe(99);
+    expect(usage.days[0]!.credits).toBe(99);
+    expect(usage.models[0]!.credits).toBe(99);
+
+    const model = await popnow.models.get('alibaba/z-image-turbo/text-to-image');
+    expect(model.credits.perUnit).toBe(10);
   });
 });

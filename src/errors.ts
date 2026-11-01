@@ -62,7 +62,7 @@ export class APIError extends PopNowError {
 export class BadRequestError extends APIError {}
 /** 401: missing, malformed, revoked or expired API key. */
 export class AuthenticationError extends APIError {}
-/** 402: insufficient balance (`40201`) or a key spend cap was reached (`40202`). */
+/** 402: insufficient API USD balance (`40201`) or a key spend cap was reached (`40202`). */
 export class PaymentRequiredError extends APIError {}
 /** 403: model, IP, region or account restrictions (`40301`, `40302`, `40303`, `40310`). */
 export class PermissionDeniedError extends APIError {}

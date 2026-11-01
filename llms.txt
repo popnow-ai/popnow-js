@@ -6,26 +6,30 @@
 
 - `npm install popnow`; import from `popnow`
 - API key from https://popnow.ai/api/console/keys, sent as `Authorization: Bearer sk-popnow-...`; the client reads `POPNOW_API_KEY` by default.
+- Add funds to the API balance at https://popnow.ai/api/console/billing (it starts at $0).
 - API base `https://api.popnow.ai`, native endpoints under `/api/v1`. Responses use the envelope `{code,msg,data,request_id}`; the SDK unwraps `data` and throws typed errors otherwise.
 
 ## Main calls
 
 - `new PopNow({ apiKey, baseURL, timeout, maxRetries, language })`
-- `popnow.jobs.quote(params)` -> price in credits without holding anything (`maxCredits`, `quoteId`)
-- `popnow.jobs.create({ model, input, callBackUrl? }, { idempotencyKey?, wait?, retention? })` -> `{ taskId, state, estimatedCredits }`
+- `popnow.jobs.quote(params)` -> exact USD price without holding anything (`maxChargeUsd`, `expectedChargeUsd`, `quoteId`)
+- `popnow.jobs.create({ model, input, callBackUrl?, quoteId?, expectedCostUsd? }, { idempotencyKey?, wait?, retention? })` -> `{ taskId, state, estimatedCostUsd }`; confirm a quote with `quoteId` and `expectedCostUsd: quote.maxChargeUsd`
 - `popnow.jobs.get(taskId)`, `popnow.jobs.wait(taskId, { signal, timeout, pollInterval, throwOnFailure })`, `popnow.jobs.createAndWait(params)`
 - `popnow.jobs.list(filters)`, `popnow.jobs.listAll(filters)`, `popnow.jobs.retry(taskId)`, `popnow.jobs.purge(taskId)`
 - `popnow.models.list({ modality, provider, task, search, includeSchema })`, `popnow.models.get(modelId)`
 - `popnow.files.upload(blobOrBytes, { contentType? })` -> `{ uri: 'popnow://f/fil_...' }`; `popnow.files.import({ url, token })` for LoRA weights; `popnow.files.downloadUrl({ taskId })`
 - `popnow.assets.create|list|listAll|get|update|delete|usage`, `popnow.assets.characters.list|get` -> stable `popnow://a/ast_...` URIs
-- `popnow.account.balance()`, `popnow.account.usage({ from, to })`
+- `popnow.account.balance()` -> `{ availableUsd, heldUsd, totalUsd }`, `popnow.account.usage({ from, to })` -> `{ totalSpend, days, models }`
 - `verifyWebhook({ payload, headers, secret })` for task callbacks; `verifyStandardWebhook` for account endpoints
 
 ## Facts
 
 - Model IDs look like `<maker>/<model>/<task>`, e.g. `alibaba/z-image-turbo/text-to-image`, `alibaba/wan-3.0/image-to-video`, `kling/3.0/text-to-video`.
 - Task states: queued, running, succeeded, failed, expired (canceled only on old records).
-- 1 credit = $0.001; same credits as the website; failed tasks are refunded.
+- Billing: USD from a separate prepaid API balance. Website credits are separate and cannot pay for API calls. A model costs the same on the API as on popnow.ai for the same settings.
+- Amounts are exact USD decimal strings with up to 9 decimals (`maxChargeUsd`, `estimatedCostUsd`, `costUsd`, `availableUsd`); keep them as strings. A task's `costUsd` is the hold until `settled` is true, then the final charge.
+- Integer credit fields (`maxCredits`, `estimatedCredits`, `credits`, `availableCredits`, ...) are deprecated projections at 1 credit = $0.001.
+- Failed or expired tasks release their hold; you pay nothing for them.
 - Output links (`output.assets[].url`) are signed and last about 20 minutes.
 
 ## Links
@@ -33,5 +37,7 @@
 - Docs: https://popnow.ai/docs
 - OpenAPI: https://popnow.ai/docs/openapi
 - llms.txt for the whole API: https://popnow.ai/llms.txt
-- MCP server: https://popnow.ai/mcp
+- API pricing: https://popnow.ai/api/pricing
+- Developer MCP server (API key, USD): https://popnow.ai/api/mcp, endpoint https://api.popnow.ai/api/v1/mcp, repo https://github.com/popnow-ai/popnow-api-mcp
+- Agent skills for developers: https://popnow.ai/api/skills
 - Source: https://github.com/popnow-ai/popnow-js

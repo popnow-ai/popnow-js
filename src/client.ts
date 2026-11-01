@@ -25,7 +25,7 @@ export interface ClientOptions {
   fetch?: Fetch;
   /**
    * Silences the warning printed when the client is created in a browser. Anyone who can read
-   * your page can read the key and spend your credits; call PopNow from your server instead.
+   * your page can read the key and spend your API balance; call PopNow from your server instead.
    */
   dangerouslyAllowBrowser?: boolean;
 }
@@ -71,7 +71,7 @@ export class PopNow {
       browserWarningShown = true;
       console.warn(
         '[popnow] The PopNow client is running in a browser. Your API key is visible to anyone who ' +
-          'opens this page and can spend your credits. Call PopNow from your own server instead.',
+          'opens this page and can spend your API balance. Call PopNow from your own server instead.',
       );
     }
 

@@ -60,7 +60,7 @@ export const taskRecord = (overrides: Record<string, unknown> = {}) => ({
   model: 'alibaba/z-image-turbo/text-to-image',
   state: 'succeeded',
   cost: '0.01',
-  credits: 10,
+  costUsd: '0.01',
   settled: true,
   createdAt: '2026-10-16T09:00:00Z',
   deadlineAt: '2026-10-16T09:10:00Z',

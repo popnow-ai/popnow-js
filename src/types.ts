@@ -1,10 +1,15 @@
 /**
  * Types for the PopNow API, written by hand from the public OpenAPI contract
- * (https://popnow.ai/docs/openapi). Amounts are returned twice: as integer
- * credits (1 credit = $0.001) and as exact USD decimal strings.
+ * (https://popnow.ai/docs/openapi). The API bills in USD from its own API balance.
+ * Every amount is an exact USD decimal string (up to nine decimal places); keep it
+ * as a string or a decimal type, never a binary float. Integer credit fields
+ * (1 credit = $0.001) are deprecated display projections kept for compatibility.
  */
 
-/** Decimal USD amount encoded as a string, for example `"0.34"`. */
+/**
+ * Exact USD amount encoded as a decimal string with up to nine decimal places and no exponent,
+ * for example `"0.34"` or `"0.004800000"`.
+ */
 export type USDString = string;
 
 /** Model call name in `<publisher>/<model>/<task>` form, for example `alibaba/wan-3.0/image-to-video`. */
@@ -38,18 +43,72 @@ export interface Envelope<T> {
 // Models
 // ---------------------------------------------------------------------------
 
+/** @deprecated Credit-scale price rule. Use {@link ModelUsdRule} from `Model.usd`. */
 export interface ModelCreditRule {
   when: Record<string, unknown>;
   perUnit: number;
   unit?: string;
 }
 
+/**
+ * @deprecated Credit-scale rate snapshot (1 credit = $0.001) kept for compatibility; it may lose
+ * precision. Use {@link ModelUsd} from `Model.usd`, and `jobs.quote` for the exact price of a request.
+ */
 export interface ModelCredits {
   /** How the price scales: `per_image`, `per_second`, `per_request`... */
   unit: string;
   /** Starting price per unit, in credits. */
   perUnit: number;
   rules?: ModelCreditRule[];
+  [key: string]: unknown;
+}
+
+/** One conditional USD price; `when` holds the input conditions it applies to. */
+export interface ModelUsdRule {
+  when: Record<string, unknown>;
+  /** USD per unit, as an exact decimal string. */
+  perUnit: USDString;
+  unit?: string;
+}
+
+/** Duration billing blocks: duration is rounded up to whole blocks, subject to `min` and `cap`. */
+export interface ModelUsdBlocks {
+  seconds: number;
+  min?: number;
+  cap?: number;
+}
+
+/** Chat models only: prices for requests whose input exceeds `thresholdTokens`. */
+export interface ModelUsdLongContext {
+  thresholdTokens?: number;
+  inclusive?: boolean;
+  input?: USDString;
+  cachedInput?: USDString;
+  cacheWrite?: USDString;
+  output?: USDString;
+}
+
+/**
+ * USD rate snapshot for a model. Amounts are exact decimal strings. Use `jobs.quote` for the
+ * authoritative hold of one request.
+ */
+export interface ModelUsd {
+  /** How the price scales: `per_image`, `per_second`, `per_request`... */
+  unit: string;
+  /** Starting USD price per unit. */
+  perUnit?: USDString;
+  blocks?: ModelUsdBlocks;
+  /** Chat models only: USD per 1M input tokens. */
+  input?: USDString;
+  /** Chat models only: USD per 1M output tokens (reasoning tokens count as output). */
+  output?: USDString;
+  /** Chat models only: USD per 1M cached input tokens. */
+  cachedInput?: USDString;
+  /** Chat models only: USD per 1M tokens written to the prompt cache. */
+  cacheWrite?: USDString;
+  longContext?: ModelUsdLongContext;
+  rules?: ModelUsdRule[];
+  currency: 'USD';
   [key: string]: unknown;
 }
 
@@ -85,6 +144,9 @@ export interface Model {
   /** Whether the model can be called right now. */
   available: boolean;
   quantityField: string;
+  /** USD rate snapshot. Use `jobs.quote` for the exact price of one request. */
+  usd: ModelUsd;
+  /** @deprecated Credit-scale rate snapshot; may lose precision. Use `usd`. */
   credits: ModelCredits;
   /** JSON Schema (draft 2020-12) for `createTask.input`. Present with `includeSchema` or on `models.get`. */
   inputSchema?: Record<string, unknown>;
@@ -125,22 +187,46 @@ export interface CreateTaskParams {
   input: Record<string, unknown>;
   /** Public HTTPS endpoint that receives the terminal task record. */
   callBackUrl?: string;
-  /** Signed quote from `jobs.quote` for the same request. */
+  /**
+   * Signed quote from `jobs.quote` for the same request. Sending it alone confirms the quoted
+   * maximum; it does not replace the `Idempotency-Key`.
+   */
   quoteId?: string;
-  /** Confirmed amount in USD to reserve. */
+  /**
+   * Confirmed USD hold: send the quote's `maxChargeUsd` (never the typical `expectedChargeUsd`).
+   * Exact decimal string, up to nine decimal places, no exponent. A changed price fails with 40901.
+   */
+  expectedCostUsd?: USDString;
+  /**
+   * @deprecated Legacy name for `expectedCostUsd`. When both are sent they must match.
+   */
   expectedCost?: USDString;
-  /** Confirmed number of credits to reserve (the quote's `maxCredits`). Wins over `expectedCost`. */
+  /**
+   * @deprecated Integer credit projection (1 credit = $0.001). It never overrides a USD amount and,
+   * alone, cannot confirm fractional-cent quotes. Use `expectedCostUsd` or `quoteId`.
+   */
   expectedCredits?: number;
 }
 
 export interface TaskQuote {
   quoteId: string;
   model: ModelId;
+  /**
+   * Exact maximum USD charge, held when the task is accepted. Send it back as
+   * `expectedCostUsd` (or send `quoteId` alone) to confirm the hold.
+   */
+  maxChargeUsd: USDString;
+  /** Typical USD charge, never above `maxChargeUsd`. Informational: do not use it to confirm a hold. */
+  expectedChargeUsd: USDString;
+  /** Same value as `maxChargeUsd`. */
   estimatedCost: USDString;
+  /** Same value as `maxChargeUsd`. */
   maxCharge: USDString;
-  /** The most this request can cost, in credits. This amount is held on acceptance. */
+  /** Legacy alias of `expectedChargeUsd`. */
+  expectedCharge: USDString;
+  /** @deprecated Credit projection of `maxChargeUsd`, rounded up. Use `maxChargeUsd`. */
   maxCredits: number;
-  /** What this request usually costs, in credits. */
+  /** @deprecated Credit projection of `expectedChargeUsd`, rounded up. Use `expectedChargeUsd`. */
   expectedCredits: number;
   currency: 'USD';
   quantity: string;
@@ -151,8 +237,11 @@ export interface TaskQuote {
 export interface CreateTaskResponse {
   taskId: string;
   state: TaskState;
+  /** Exact USD held when the task was accepted; the most this task can cost. Unused funds are released at settlement. */
+  estimatedCostUsd: USDString;
+  /** Same value as `estimatedCostUsd`. */
   estimatedCost: USDString;
-  /** Credits held when the task was accepted; the most this task can cost. */
+  /** @deprecated Credit projection of the hold, rounded up. Use `estimatedCostUsd`. */
   estimatedCredits: number;
   deadlineAt: string;
 }
@@ -235,9 +324,15 @@ export interface TaskRecord {
   output?: TaskOutput;
   errorCode?: TaskErrorCode | (string & {});
   errorMessage?: string;
+  /** Exact USD: the hold while `settled` is false, the final charge once it is true. Use it for reconciliation. */
+  costUsd: USDString;
+  /** Same value as `costUsd`. */
   cost: USDString;
-  /** Held amount before settlement, final charge after. */
+  /** @deprecated Credit projection of `costUsd`, rounded up. Use `costUsd`. */
   credits: number;
+  /** @deprecated Unrounded credit-scale decimal string (USD x 1000). Use `costUsd`. */
+  exactCredits?: string;
+  /** When false, `costUsd` is the hold; when true, it is the final charge. */
   settled: boolean;
   createdAt: string;
   deadlineAt?: string;
@@ -275,8 +370,12 @@ export interface TaskListItem {
   requestId?: string;
   model: ModelId;
   state: TaskState;
+  /** Exact USD: the final charge if settled, otherwise the current hold. */
   cost: USDString;
+  /** @deprecated Credit projection of `cost`, rounded up. Use `cost`. */
   credits: number;
+  /** @deprecated Unrounded credit-scale decimal string (USD x 1000). Use `cost`. */
+  exactCredits?: string;
   settled: boolean;
   createdAt: string;
   deadlineAt: string;
@@ -303,7 +402,9 @@ export interface UsageDay {
   calls: number;
   succeeded: number;
   failed: number;
+  /** Settled USD spend. */
   spend: USDString;
+  /** @deprecated Credit projection of `spend`, rounded up. Use `spend`. */
   credits: number;
 }
 
@@ -312,7 +413,9 @@ export interface UsageModel {
   calls: number;
   succeeded: number;
   failed: number;
+  /** Settled USD spend. */
   spend: USDString;
+  /** @deprecated Credit projection of `spend`, rounded up. Use `spend`. */
   credits: number;
 }
 
@@ -321,7 +424,9 @@ export interface Usage {
   to: string;
   currency: 'USD';
   totalCalls: number;
+  /** Settled USD spend over the whole range. */
   totalSpend: USDString;
+  /** @deprecated Credit projection of `totalSpend`, rounded up. Use `totalSpend`. */
   totalCredits: number;
   days: UsageDay[];
   models: UsageModel[];
@@ -364,15 +469,26 @@ export interface FundingOverview {
   grantsHasMore: boolean;
 }
 
+/** The independent API USD balance behind the key. Website credits are separate and never count here. */
 export interface Balance {
   funding?: FundingOverview;
+  /** Exact USD new tasks can use now. Can be negative. */
+  availableUsd: USDString;
+  /** Exact USD held by accepted tasks that have not settled yet. */
+  heldUsd: USDString;
+  /** `availableUsd` plus `heldUsd`. */
+  totalUsd: USDString;
+  /** Legacy alias of `availableUsd`. */
   available: USDString;
+  /** Legacy alias of `heldUsd`. */
   held: USDString;
+  /** Legacy alias of `totalUsd`. */
   total: USDString;
-  /** Credits you can spend now. */
+  /** @deprecated Credit projection of `availableUsd`, truncated toward zero. Use `availableUsd`. */
   availableCredits: number;
-  /** Credits held by accepted tasks that have not settled yet. */
+  /** @deprecated Credit projection of `heldUsd`, rounded up. Use `heldUsd`. */
   heldCredits: number;
+  /** @deprecated Sum of the two credit projections; not an exact balance. Use `totalUsd`. */
   totalCredits: number;
 }
 
