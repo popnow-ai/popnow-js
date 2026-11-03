@@ -1,6 +1,6 @@
 {
   "name": "popnow",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Official TypeScript SDK for the PopNow API: AI video, image, music and speech generation with Kling, Seedance, Wan, Nano Banana, Flux and more.",
   "license": "MIT",
   "author": "PopNow (https://popnow.ai)",

@@ -93,6 +93,8 @@ export interface ModelUsdLongContext {
  * authoritative hold of one request.
  */
 export interface ModelUsd {
+  /** Exact USD token rates, including audio/image components when supplied. */
+  perMillionTokens?: Record<string, unknown>;
   /** How the price scales: `per_image`, `per_second`, `per_request`... */
   unit: string;
   /** Starting USD price per unit. */
@@ -301,7 +303,12 @@ export interface TaskTranscript {
   channels?: TaskTranscriptChannel[];
 }
 
+export interface EmbeddingVector { index: number; embedding: number[]; }
+export interface EmbeddingBatch { data: EmbeddingVector[]; inputTokens: number; }
+
 export interface TaskOutput {
+  /** Measured vector result, available on embedding tasks. */
+  embeddings?: EmbeddingBatch;
   /** Text result (transcription). */
   text?: string;
   transcript?: TaskTranscript;
