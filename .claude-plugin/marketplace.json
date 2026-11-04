@@ -1,0 +1,39 @@
+{
+  "name": "popnow-js",
+  "description": "Helps Claude Code integrate the PopNow TypeScript SDK (npm: popnow) into an app: AI image, video, music and speech generation with quote-then-create pricing, idempotent jobs, waiting, uploads and verified webhooks.",
+  "owner": {
+    "name": "PopNow",
+    "url": "https://popnow.ai"
+  },
+  "plugins": [
+    {
+      "name": "popnow-js-sdk",
+      "source": "./",
+      "description": "Helps Claude Code integrate the PopNow TypeScript SDK (npm: popnow) into an app: AI image, video, music and speech generation with quote-then-create pricing, idempotent jobs, waiting, uploads and verified webhooks.",
+      "version": "1.0.0",
+      "author": {
+        "name": "PopNow",
+        "email": "support@popnow.ai",
+        "url": "https://popnow.ai"
+      },
+      "homepage": "https://popnow.ai/docs",
+      "repository": "https://github.com/popnow-ai/popnow-js",
+      "license": "MIT",
+      "category": "development",
+      "keywords": [
+        "typescript",
+        "javascript",
+        "sdk",
+        "nodejs",
+        "developer-tools",
+        "popnow",
+        "ai-video",
+        "ai-image",
+        "ai-music",
+        "text-to-speech",
+        "text-to-video",
+        "image-to-video"
+      ]
+    }
+  ]
+}

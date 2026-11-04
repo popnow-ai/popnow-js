@@ -283,6 +283,13 @@ a Next.js route handler) and pass `dangerouslyAllowBrowser: true` only for local
 - [`examples/nextjs/app/api/generate/route.ts`](examples/nextjs/app/api/generate/route.ts): a Next.js route handler that creates and reads tasks.
 - [`examples/nextjs/app/api/popnow-webhook/route.ts`](examples/nextjs/app/api/popnow-webhook/route.ts): a verified webhook receiver.
 
+## Claude Code plugin
+
+```text
+/plugin marketplace add popnow-ai/popnow-js
+/plugin install popnow-js-sdk@popnow-js
+```
+
 ## FAQ
 
 ### How do I generate a video from an image with an API?
