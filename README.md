@@ -25,7 +25,7 @@
   <a href="https://popnow.ai/docs"><img alt="Docs" src="https://img.shields.io/badge/docs-popnow.ai%2Fdocs-111.svg"></a>
 </p>
 
-PopNow AI ([popnow.ai](https://popnow.ai)) is the world's first AI creative studio that pays you back, a browser-based studio for videos, images and music: image-to-video, text-to-video, AI images,
+PopNow AI ([popnow.ai](https://popnow.ai)) is the world's first AI studio with automatic price protection, a browser-based studio for videos, images and music: image-to-video, text-to-video, AI images,
 music and speech, one-tap trending video effects and image styles. This SDK gives Node.js, Deno, Bun,
 Cloudflare Workers and edge runtimes typed access to the same models as [popnow.ai](https://popnow.ai), at the
 same price for the same settings, billed in USD from your separate **API balance**. It has **zero runtime
